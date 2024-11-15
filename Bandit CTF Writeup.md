@@ -277,7 +277,7 @@ Level 30:
 
 Level 31:
 1. downloaded the repo and opened the README.md
-2. ```
+2. 
 ```
 This time your task is to push a file to the remote repository.
 	Details:
