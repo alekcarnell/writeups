@@ -113,10 +113,99 @@ if(preg_match('/[;|&]/',$key)) {
 ```
 
 3. This allows us to use the rest though like "#<>!@" and so on. 
-4. After doing some research on other commands that we could use that didnt have illegal symbols, I hit a wall. But of course, once again, simplifying things made it clear. 
-5. I tried inputting just a `a`. I got a list of words. As long as our payload gets through, we should be able to see what is going on. The `;` at the beggining of the command in the previous level was our delivery method. The `a` is now our new delivery method....
+4. After doing some research on other commands that we could use that didn't have illegal symbols, I hit a wall. But of course, once again, simplifying things made it clear. 
+5. I tried inputting just a `a`. I got a list of words. As long as our payload gets through, we should be able to see what is going on. The `;` at the beginning of the command in the previous level was our delivery method. The `a` is now our new delivery method....
 6. So I tried, `a ls -la`. BINGO! It executed and returned everything after the `a`
 7. Naturally, my next payload was `a cat /etc/natas_webpass/natas11` which revealed the password! `UJdqkK1pTu6VLt9UHWAgRZz6sVUZ3lEk`
 
 Level 11:
-1. 
+1. Upon logging in, I see page that allows me to provide an input, specifically a hexadecimal color value, and then the websites background color will change to what I provide. 
+2. There is also a note at the top that reads: "Cookies are protected with XOR encryption"
+3. There is another "View Sourcecode" button that I will go ahead and inspect as well. 
+4. This code is much more sophisticated than what we have seen in previous levels. 
+```
+ <?
+
+$defaultdata = array( "showpassword"=>"no", "bgcolor"=>"#ffffff");
+
+function xor_encrypt($in) {
+    $key = '<censored>';
+    $text = $in;
+    $outText = '';
+
+    // Iterate through each character
+    for($i=0;$i<strlen($text);$i++) {
+    $outText .= $text[$i] ^ $key[$i % strlen($key)];
+    }
+
+    return $outText;
+}
+
+function loadData($def) {
+    global $_COOKIE;
+    $mydata = $def;
+    if(array_key_exists("data", $_COOKIE)) {
+    $tempdata = json_decode(xor_encrypt(base64_decode($_COOKIE["data"])), true);
+    if(is_array($tempdata) && array_key_exists("showpassword", $tempdata) && array_key_exists("bgcolor", $tempdata)) {
+        if (preg_match('/^#(?:[a-f\d]{6})$/i', $tempdata['bgcolor'])) {
+        $mydata['showpassword'] = $tempdata['showpassword'];
+        $mydata['bgcolor'] = $tempdata['bgcolor'];
+        }
+    }
+    }
+    return $mydata;
+}
+
+function saveData($d) {
+    setcookie("data", base64_encode(xor_encrypt(json_encode($d))));
+}
+
+$data = loadData($defaultdata);
+
+if(array_key_exists("bgcolor",$_REQUEST)) {
+    if (preg_match('/^#(?:[a-f\d]{6})$/i', $_REQUEST['bgcolor'])) {
+        $data['bgcolor'] = $_REQUEST['bgcolor'];
+    }
+}
+
+saveData($data);
+
+?>
+```
+
+4. I am just going to break down what I think each function does to help myself get through this.
+   
+   function xor_encrypt{$in}
+	- takes $in as an argument and feeds it into $text
+	- defines the $key variable, but censors it so we can't see it
+	- A loop iterates through each digit in $text and performs a bitwise XOR operation against the $text and the $key. To ensure the entire thing gets operated on, the modulo (%) operation is used to when comparing the $text and the %key which effectively loops back around to the beginning of the key if the text is too long or short. 
+	- The result of the operation is appended to the $outText variable and returned by the function after it has completed. 
+	- I had ChatGPT summarize the code as well and that seems to be more or less what is going on: *"The code iterates over each character in `$text`, XORs it with a corresponding character from `$key` (repeating the key if necessary), and appends the result to `$outText`. This could be used for a simple encryption or encoding algorithm."*
+
+	function loadData{$def}
+	-  This one was a little above my programming knowledge so I had ChatGPT break it down for me: 
+	  
+	- **Input**: The function accepts an argument `$def`, which is an array.
+	- **Process**: It checks if a cookie named `"data"` exists. If the cookie exists:
+	    - It base64-decodes and XOR decrypts the cookie's value.
+    - It attempts to decode the decrypted value as JSON.
+    - It checks if the decoded data contains specific keys (`showpassword`, `bgcolor`) and if the `bgcolor` is a valid hex color code.
+	- **Output**: The function returns the modified or unmodified `$mydata` array. If the cookie data is valid, it updates `$mydata` with values from the cookie; otherwise, it returns the original `$def` array.
+
+5. It seems to be that the entire script takes the users input, sanitizes it, encodes it, and stores it in a cookie. Then the cookie is read and the background color of the website it set when the cookie is decoded. 
+6. So... it seems like we need to bypass encryption, perhaps by encrypting our own payload and submitting it?
+7. I opened up the console and inspected the cookie that was made by my previous submission. Inside the cookie was the data in, what appears to be, its encrypted form: "HmYkBwozJw4WNyAAFyB1VUcqOE1JZjUIBis7ABdmbU1Gd2MJAyU2TRg%3D"
+8. We have to go through the motions of working backwards from this....
+9. The encryption was handled using base64_encode(XOR_encode(Json_encode(plain_text)))
+10. We are trying to get the plaintext first so that we can solve for XOR. So I throw up an interactive PHP shell to do a JSON_encode of the plaintext that was given to us in the source code "showpassword"=>"no", "bgcolor"=>"#ffffff"
+11. `php > echo json_encode(array("showpassword"=>"no", "bgcolor"=>"#ffffff"));` gives us `{"showpassword":"no","bgcolor":"#ffffff"}`
+12. We then put that as our key for the XOR operation and feed the string that we get from decoding the cookie data in Cyberchef. To break that down:
+	1. We first do a base64 decode of the string `HmYkBwozJw4WNyAAFyB1VUcqOE1JZjUIBis7ABdmbU1Gd2MJAyU2TRg=`
+	2. Then we take that output, which looks like a mess, and set that as our new input for our next operation `f$ 3'7   uUG*8MIf5+; fmMF"1	"1M`
+	3. The next operation is to use XOR, and use our "`{"showpassword":"no","bgcolor":"#ffffff"}`" as the key. The new output is: `eDWoeDWoeDWoeDWoeDWoeDWoeDWoeDWoeDWoeDWoe`
+	4. This is actually correct, because if we recall in the function, the text was shorter than the key, so it loops around. Which means we know the text is `eDWo`
+13. Now that we have our key, we need to work our way back up and try to craft a cookie that tricks the browser into sending "{"showpassword":"yes","bgcolor":"#ffffff"}"  (note the "yes" instead of the "no" this time)
+14. In Cyber chef, we set our input to that JSON string with the Yes, and then we do XOR and Base64 in that order. We set the XOR key to `eDWo` and get: `HmYkBwozJw4WNyAAFyB1VUc9MhxHaHUNAic4Awo2dVVHZzEJAyIxCUc5`
+15. We go back into our browser and plug replace the old cookie data with our new cookie and refresh the page and BOOM!
+16. Password is: `yZdkjAYZRd3R7tq7T5kXMjMJlOIkzDeB`
+
