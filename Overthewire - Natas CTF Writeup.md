@@ -228,4 +228,26 @@ Level 12:
 
 Level 13:
 1. Upon Logging in, I am presented with the same room, but with an added note at the top: "For security reasons, we now only accept image files!"
-2. 
+2. After looking at the new source code and seeing how the website was now checking for file extensions, I noticed that it was looking at exif data in one of the functions. My assumption is that I would have to edit this somehow. 
+3. I did some digging around but I couldn't quite find what I was looking for. I cheated a bit and looked up a guide and realized that I should have looked at one the function itself actually does. It checks the header of the hex data of an image and looks for a string of bytes that would be found on a .jpg file
+4. I download Gnome Hex and start crafting a new file. I originally made a jpg file in Krita, but they were all coming out massive because Krita throws a bunch of info in the exif. So i just copied the header of a jpg file onto a brand new txt file that I created and then added the php code a little after the header. It was the same code as before: `<?php passthru($_GET['cmd']); php?>`
+5. With this code now injected into the file via the hex data, and with the .jpg extension validated by the exif header, I uploaded it to the server...
+6. Success! After uploading, I went back into the POST entry in Burp Suite, renamed the file to use the .php extension and resent it. 
+7. After that, just like the last level, I put the command code in the URL and cat'd out natas14
+8. `z3UYcr4v4uBpeX8f7EZbMHlzK4UR2XtQ`
+
+Level 14:
+1. I log in and see... a login. I view the source code and see that this is checking a SQL database for the username and password
+2. *SNIIIIFFFFF* Ah yes... good ol' SQL injection
+3. I tried "admin, admin" just in case it was a test for that. Denied. 
+4. Okay so time to try some common SQL injections. I pulled up a list of basic ones from W3 Schools and eventually `" OR ""="` was the one that worked. 
+5. `SdqIqBsFcz3yotlNYErZSZwblkm0lrvx`
+
+Level 15:
+
+1. sdf
+2. sd
+3. fs
+4. df
+5. 
+6. hPkjKYviLQctEW33QmuXL6eDVfMW4sGo
